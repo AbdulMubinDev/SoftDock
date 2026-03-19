@@ -31,16 +31,22 @@ class IssueStreamConsumer(AsyncWebsocketConsumer):
         self.issue_id = self.scope["url_route"]["kwargs"]["issue_id"]
         self.user = self.scope.get("user", AnonymousUser())
 
-        if isinstance(self.user, AnonymousUser) or not self.user.is_authenticated:
-            await self.close(code=4001)
-            return
+        try:
+            if isinstance(self.user, AnonymousUser) or not self.user.is_authenticated:
+                logger.warning("WS rejected: unauthenticated user for issue %s", self.issue_id)
+                await self.close(code=4001)
+                return
 
-        has_access = await self._check_access()
-        if not has_access:
-            await self.close(code=4003)
-            return
+            has_access = await self._check_access()
+            if not has_access:
+                logger.warning("WS rejected: no access for user %s to issue %s", self.user.id, self.issue_id)
+                await self.close(code=4003)
+                return
 
-        await self.accept()
+            await self.accept()
+        except Exception as exc:
+            logger.exception("WS connect() crashed for issue %s: %s", self.issue_id, exc)
+            await self.close(code=4500)
 
     async def disconnect(self, code):
         pass
@@ -57,14 +63,21 @@ class IssueStreamConsumer(AsyncWebsocketConsumer):
 
         msg_type = data.get("type")
 
-        if msg_type == "stream":
-            await self._handle_stream()
-        elif msg_type == "message":
-            content = data.get("content", "").strip()
-            if content:
-                await self._handle_user_message(content)
-        elif msg_type == "resolve":
-            await self._resolve_issue()
+        try:
+            if msg_type == "stream":
+                await self._handle_stream()
+            elif msg_type == "message":
+                content = data.get("content", "").strip()
+                if content:
+                    await self._handle_user_message(content)
+            elif msg_type == "resolve":
+                await self._resolve_issue()
+        except Exception as exc:
+            logger.exception("WS receive handler crashed for issue %s: %s", self.issue_id, exc)
+            try:
+                await self.send(text_data=json.dumps({"type": "error", "content": f"Server error: {exc}"}))
+            except Exception:
+                pass
 
     async def _handle_stream(self):
         """
@@ -93,24 +106,42 @@ class IssueStreamConsumer(AsyncWebsocketConsumer):
         await self._stream_ai(issue)
 
     async def _stream_ai(self, issue):
-        """Stream AI response token by token to the connected client."""
-        await self.send(text_data=json.dumps({"type": "stream_start"}))
+        """Stream AI response token by token to the connected client.
+        Always saves the assistant message to DB even if the client disconnects."""
+        self._client_gone = False
+
+        try:
+            await self.send(text_data=json.dumps({"type": "stream_start"}))
+        except Exception:
+            self._client_gone = True
 
         full_response = ""
         try:
             async for token in get_ai_stream(self.user, issue):
                 full_response += token
-                await self.send(text_data=json.dumps({"type": "token", "content": token}))
+                if not self._client_gone:
+                    try:
+                        await self.send(text_data=json.dumps({"type": "token", "content": token}))
+                    except Exception:
+                        self._client_gone = True
         except Exception as exc:
             logger.exception("AI streaming error for issue %s", self.issue_id)
-            error_msg = f"AI error: {str(exc)}"
-            await self.send(text_data=json.dumps({"type": "error", "content": error_msg}))
-            full_response = error_msg
+            if not full_response:
+                full_response = f"AI error: {str(exc)}"
+            if not self._client_gone:
+                try:
+                    await self.send(text_data=json.dumps({"type": "error", "content": str(exc)}))
+                except Exception:
+                    self._client_gone = True
 
         if full_response:
             await self._save_message(issue, Message.Role.ASSISTANT, full_response)
 
-        await self.send(text_data=json.dumps({"type": "stream_end"}))
+        if not self._client_gone:
+            try:
+                await self.send(text_data=json.dumps({"type": "stream_end"}))
+            except Exception:
+                pass
 
     async def _resolve_issue(self):
         issue = await self._get_issue()

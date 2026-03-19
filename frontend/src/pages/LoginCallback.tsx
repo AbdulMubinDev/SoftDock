@@ -27,11 +27,17 @@ export function LoginCallback() {
     }
 
     setTokens(access, refresh ?? '');
+    const returnUrl = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('auth_return_url') : null;
     api
       .get('/auth/me/')
       .then((res) => {
         setUser(res.data);
-        navigate('/dashboard', { replace: true });
+        if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+          sessionStorage.removeItem('auth_return_url');
+          navigate(returnUrl, { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
       })
       .catch(() => {
         setError('Session setup failed. Try signing in again.');

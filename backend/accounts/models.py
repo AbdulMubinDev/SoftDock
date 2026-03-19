@@ -66,6 +66,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=255, blank=True)
     bio = models.TextField(blank=True, default="", max_length=2000)
     email_notifications = models.BooleanField(default=True)
+    subscription_plan_name = models.CharField(max_length=64, default="Free", blank=True)
+    preferred_ai_provider = models.CharField(max_length=32, blank=True, default="")
+    preferred_ai_model_id = models.CharField(max_length=128, blank=True, default="")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -115,3 +118,23 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_ordered_api_keys(self):
         """Return UserAPIKey entries for this user, ordered by priority (primary first, then fallbacks)."""
         return list(self.api_keys.order_by("order", "created_at"))
+
+
+class UserFeedback(models.Model):
+    """User feedback/review with star rating (1-5) and optional text."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="feedback",
+    )
+    rating = models.PositiveSmallIntegerField()  # 1-5
+    review = models.TextField(blank=True, default="", max_length=5000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.email} — {self.rating} stars"

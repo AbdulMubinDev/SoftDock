@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
+import { useAuthStore } from '../../lib/stores/authStore';
 
 export function CTA() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   return (
     <section id="cta" className="min-h-screen flex items-center relative z-10 overflow-hidden">
       {/* Layered background glow */}
@@ -57,12 +59,12 @@ export function CTA() {
 
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-            <Link to="/register">
+            <Link to={isAuthenticated ? "/dashboard" : "/register"}>
               <Button
                 size="lg"
                 className="!px-12 !py-5 !text-base !font-semibold !rounded-xl !shadow-[0_0_32px_rgba(26,107,204,0.3)]"
               >
-                Start debugging free →
+                {isAuthenticated ? "Go to Dashboard →" : "Start debugging free →"}
               </Button>
             </Link>
             <Link

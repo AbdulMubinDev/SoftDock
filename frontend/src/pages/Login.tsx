@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuthStore } from '../lib/stores/authStore';
@@ -25,14 +25,28 @@ function GithubIcon({ className }: { className?: string }) {
   );
 }
 
+const AUTH_RETURN_KEY = 'auth_return_url';
+
+function getValidNext(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const next = searchParams.get('next');
+    const valid = getValidNext(next);
+    if (valid) sessionStorage.setItem(AUTH_RETURN_KEY, valid);
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +57,13 @@ export function Login() {
       setTokens(data.access, data.refresh);
       const me = await api.get('/auth/me/');
       setUser(me.data);
-      navigate('/dashboard');
+      const returnUrl = sessionStorage.getItem(AUTH_RETURN_KEY);
+      if (returnUrl) {
+        sessionStorage.removeItem(AUTH_RETURN_KEY);
+        navigate(returnUrl);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -173,7 +193,7 @@ export function Login() {
 
           <p className="mt-6 text-center text-sm text-text-muted">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary-bright no-underline hover:underline font-medium">
+            <Link to={searchParams.toString() ? `/register?${searchParams.toString()}` : '/register'} className="text-primary-bright no-underline hover:underline font-medium">
               Create one
             </Link>
           </p>

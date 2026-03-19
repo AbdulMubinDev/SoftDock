@@ -8,22 +8,42 @@ type Plan = {
   price: string;
   period: string;
   note: string;
+  /** Shown under price when set (e.g. annual option) */
+  priceSub?: string;
   features: Feature[];
   cta: string;
   primary?: boolean;
   featured?: boolean;
   badge?: string;
+  free?: boolean;
 };
 
 const PLANS: Plan[] = [
+  {
+    name: 'Free',
+    price: '$0',
+    period: '',
+    note: 'Always free — no credit card',
+    features: [
+      { text: '1 workspace', included: true },
+      { text: 'Unlimited issues', included: true },
+      { text: 'BYOK (Anthropic + OpenAI)', included: true },
+      { text: 'Streaming responses', included: true },
+      { text: 'Issue history (7 days)', included: true },
+      { text: 'Resolution memory', included: false },
+    ],
+    cta: 'Get started free',
+    free: true,
+  },
   {
     name: 'Starter',
     price: '$9',
     period: '/mo',
     note: '+ your own API costs',
+    priceSub: '$90/year — save $18',
     features: [
       { text: '2 workspaces', included: true },
-      { text: '10 knowledge documents', included: true },
+      { text: 'Unlimited issues per workspace', included: true },
       { text: 'BYOK (Anthropic + OpenAI)', included: true },
       { text: 'Streaming responses', included: true },
       { text: 'Issue history (30 days)', included: true },
@@ -36,11 +56,12 @@ const PLANS: Plan[] = [
     price: '$19',
     period: '/mo',
     note: '+ your own API costs',
+    priceSub: '$190/year — save 2 months',
     features: [
       { text: 'Unlimited workspaces', included: true },
-      { text: 'Unlimited knowledge docs', included: true },
+      { text: 'Unlimited issues', included: true },
       { text: 'BYOK (any provider)', included: true },
-      { text: 'Screenshot & terminal input', included: true },
+      { text: 'Screenshot & file attachments', included: true },
       { text: 'Resolution memory', included: true },
       { text: 'Unlimited issue history', included: true },
     ],
@@ -53,7 +74,7 @@ const PLANS: Plan[] = [
     name: 'Founding Member',
     price: '$29',
     period: ' once',
-    note: 'Lifetime access — limited spots',
+    note: 'Lifetime Pro — limited to first 500',
     features: [
       { text: 'Everything in Pro, forever', included: true },
       { text: 'One-time payment', included: true },
@@ -84,7 +105,7 @@ export function Pricing() {
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
@@ -126,7 +147,12 @@ export function Pricing() {
                   <span className="text-4xl font-extrabold text-[var(--text)]">{plan.price}</span>
                   <span className="text-base text-text-dim font-normal">{plan.period}</span>
                 </div>
-                <div className="text-[12px] text-text-dim mb-7">{plan.note}</div>
+                <div className="text-[12px] text-text-dim mb-1">{plan.note}</div>
+                {plan.priceSub ? (
+                  <div className="text-[11px] text-primary-bright/90 mb-5">{plan.priceSub}</div>
+                ) : (
+                  <div className="mb-5" />
+                )}
 
                 {/* Divider */}
                 <div className="h-px bg-[var(--border)] mb-6" />
@@ -155,6 +181,13 @@ export function Pricing() {
                     <Button className="w-full !py-3.5 !text-sm !font-semibold !shadow-[0_0_24px_rgba(26,107,204,0.25)]">
                       {plan.cta} →
                     </Button>
+                  ) : plan.free ? (
+                    <button
+                      type="button"
+                      className="w-full py-3.5 rounded-xl border border-[var(--border)] bg-transparent text-sm font-medium text-[var(--text)] hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
+                    >
+                      {plan.cta}
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -172,7 +205,7 @@ export function Pricing() {
         {/* Bottom note */}
         <div className="text-center mt-12">
           <p className="text-sm text-text-dim">
-            All plans include streaming responses and full BYOK support.{' '}
+            Start free, upgrade when you need more. All paid plans support annual billing (save up to 2 months).{' '}
             <Link to="/" className="text-primary-bright no-underline hover:underline">
               Back to home
             </Link>

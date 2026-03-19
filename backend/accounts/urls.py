@@ -7,6 +7,8 @@ from .views import (
     CustomTokenRefreshView,
     UserAPIKeyListCreateView,
     UserAPIKeyDetailView,
+    ModelsCatalogView,
+    FeedbackListCreateView,
 )
 from .oauth import (
     GoogleLoginView,
@@ -23,6 +25,8 @@ urlpatterns = [
     path("change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("api-keys/", UserAPIKeyListCreateView.as_view(), name="api_key_list_create"),
     path("api-keys/<uuid:pk>/", UserAPIKeyDetailView.as_view(), name="api_key_detail"),
+    path("models/", ModelsCatalogView.as_view(), name="models_catalog"),
+    path("feedback/", FeedbackListCreateView.as_view(), name="feedback_list_create"),
     # OAuth
     path("google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("google/callback/", GoogleCallbackView.as_view(), name="google_callback"),

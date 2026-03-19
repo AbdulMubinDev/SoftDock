@@ -42,3 +42,21 @@ class Message(models.Model):
 
     def __str__(self):
         return f"[{self.role}] {self.content[:80]}"
+
+
+class MessageAttachment(models.Model):
+    """Stores file attachments for user messages. Files are treated as read-only data, never executed."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="attachments")
+    file = models.FileField(upload_to="attachments/%Y/%m/%d/", max_length=500, blank=True)
+    file_path = models.CharField(max_length=500, blank=True)  # custom storage path under MEDIA_ROOT
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    file_size = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.original_name} ({self.message_id})"

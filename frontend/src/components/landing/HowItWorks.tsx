@@ -13,7 +13,7 @@ const STEPS = [
       lines: [
         { icon: '□', text: 'fintech-api', accent: false },
         { icon: '●', text: 'API key connected', accent: true },
-        { icon: '●', text: 'Knowledge base: empty', accent: false },
+        { icon: '●', text: 'Ready to debug', accent: false },
       ],
       footer: 'Ready in ~30 seconds',
     },

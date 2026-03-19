@@ -1,9 +1,11 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import UserAPIKey
+from .models import UserAPIKey, UserFeedback
+from issues.ai_client import PROVIDER_MODELS
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
@@ -11,6 +13,7 @@ from .serializers import (
     ChangePasswordSerializer,
     UserAPIKeySerializer,
     CreateUserAPIKeySerializer,
+    UserFeedbackSerializer,
 )
 
 
@@ -98,3 +101,44 @@ class UserAPIKeyDetailView(APIView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ModelsCatalogView(APIView):
+    """GET: Return AI model catalog per provider for model selection UI."""
+
+    def get(self, request):
+        choices = dict(UserAPIKey.Provider.choices)
+        catalog = []
+        for provider, models in PROVIDER_MODELS.items():
+            catalog.append({
+                "provider": provider,
+                "provider_display": choices.get(provider, provider),
+                "models": [{"id": m["id"], "name": m["name"], "tier": m["tier"]} for m in models],
+            })
+        return Response(catalog)
+
+
+class FeedbackListCreateView(APIView):
+    """GET: List all feedbacks (public). POST: Submit feedback (authenticated only)."""
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        feedbacks = UserFeedback.objects.all().order_by("-created_at")
+        return Response(UserFeedbackSerializer(feedbacks, many=True).data)
+
+    def post(self, request):
+        serializer = UserFeedbackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = UserFeedback.objects.create(
+            user=request.user,
+            rating=serializer.validated_data["rating"],
+            review=serializer.validated_data.get("review", "") or "",
+        )
+        return Response(
+            UserFeedbackSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )

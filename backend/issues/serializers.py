@@ -1,11 +1,22 @@
 from rest_framework import serializers
-from .models import Issue, Message
+from .models import Issue, Message, MessageAttachment
+
+
+class MessageAttachmentSerializer(serializers.ModelSerializer):
+    """Expose attachment metadata for chat history. No file path or internal details."""
+
+    class Meta:
+        model = MessageAttachment
+        fields = ("id", "original_name", "content_type", "file_size")
+        read_only_fields = ("id", "original_name", "content_type", "file_size")
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    attachments = MessageAttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Message
-        fields = ("id", "role", "content", "tokens_used", "created_at")
+        fields = ("id", "role", "content", "tokens_used", "created_at", "attachments")
         read_only_fields = ("id", "role", "tokens_used", "created_at")
 
 
@@ -40,4 +51,5 @@ class IssueCreateSerializer(serializers.ModelSerializer):
 
 
 class SendMessageSerializer(serializers.Serializer):
-    content = serializers.CharField(min_length=1, max_length=20000)
+    """Accepts content (optional when files present) and optional files via multipart. Content max 50,000 chars."""
+    content = serializers.CharField(allow_blank=True, max_length=50000, default="")

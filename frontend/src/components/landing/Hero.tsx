@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { Button } from "../ui/Button";
+import { useAuthStore } from "../../lib/stores/authStore";
 
 export function Hero() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   return (
     <section
       id="hero"
@@ -37,9 +39,9 @@ export function Hero() {
           your stack, and solves your exact problem.
         </p>
         <div className="flex items-center gap-4 animate-fade-up animation-delay-200">
-          <Link to="/register">
+          <Link to={isAuthenticated ? "/dashboard" : "/register"}>
             <Button size="lg" className="!px-8 !py-3.5">
-              Start debugging free →
+              {isAuthenticated ? "Go to Dashboard →" : "Start debugging free →"}
             </Button>
           </Link>
           <a

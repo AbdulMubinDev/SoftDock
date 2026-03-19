@@ -1,7 +1,7 @@
 const ROWS = [
-  { label: 'Context', left: 'General knowledge', right: 'Your version, your config, your docs' },
+  { label: 'Context', left: 'General knowledge', right: 'Your issues, your stack traces, your logs' },
   { label: 'Memory', left: 'Forgets every session', right: 'Remembers every resolved issue' },
-  { label: 'Sources', left: 'Training data, often outdated', right: 'Live docs, changelogs, GitHub issues' },
+  { label: 'Sources', left: 'Training data, often outdated', right: 'Your errors, your code, your history' },
   { label: 'Cost', left: 'Subscription with caps', right: 'Your API key — cost price, no markup' },
 ];
 
@@ -9,7 +9,7 @@ const DIFFERENTIATORS = [
   {
     num: '01',
     title: 'Tool-specific, never generic',
-    body: 'SoftDock knows the exact version of the exact library you use, loaded from your actual documentation.',
+    body: 'SoftDock focuses on your stack traces, logs, and code — no generic fluff.',
   },
   {
     num: '02',
@@ -18,8 +18,8 @@ const DIFFERENTIATORS = [
   },
   {
     num: '03',
-    title: 'Knowledge that compounds',
-    body: 'Every resolved issue makes your workspace smarter. Next time, it already knows the fix.',
+    title: 'Resolution memory',
+    body: 'Every resolved issue is remembered. The assistant can reference past fixes in your workspace.',
   },
 ];
 

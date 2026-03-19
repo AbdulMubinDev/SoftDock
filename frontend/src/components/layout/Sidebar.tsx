@@ -2,12 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore, type Workspace } from '../../lib/stores/workspaceStore';
 import { useAuthStore } from '../../lib/stores/authStore';
+import { isWorkspaceCountAtLimit } from '../../lib/planLimits';
 import { api } from '../../lib/api';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'chat' },
-  { to: '/knowledge-base', label: 'Knowledge Base', icon: 'book' },
   { to: '/history', label: 'History', icon: 'clock' },
+  { to: '/feedback', label: 'Feedback', icon: 'feedback' },
 ];
 
 const icons: Record<string, React.ReactNode> = {
@@ -16,16 +17,15 @@ const icons: Record<string, React.ReactNode> = {
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   ),
-  book: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-    </svg>
-  ),
   clock: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
+    </svg>
+  ),
+  feedback: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
     </svg>
   ),
 };
@@ -63,7 +63,12 @@ export function Sidebar({ width, collapsed, onToggleCollapse }: SidebarProps) {
     api.get('/workspaces/').then((res) => {
       const list: Workspace[] = res.data.results ?? res.data;
       setWorkspaces(list);
-      if (list.length && !activeWorkspace) setActiveWorkspace(list[0]);
+      const unlocked = list.filter((w) => !w.is_locked);
+      if (list.length && !activeWorkspace) {
+        setActiveWorkspace(unlocked.length ? unlocked[0] : list[0]);
+      } else if (activeWorkspace && list.some((w) => w.id === activeWorkspace.id && w.is_locked)) {
+        setActiveWorkspace(unlocked.length ? unlocked[0] : null);
+      }
     }).catch(() => {});
   }, [setWorkspaces, setActiveWorkspace, activeWorkspace]);
 
@@ -201,39 +206,68 @@ export function Sidebar({ width, collapsed, onToggleCollapse }: SidebarProps) {
             style={isIconOnly ? { left: '100%', top: 0, marginLeft: 4 } : { left: 8, right: 8, top: '100%' }}
           >
             <div className="max-h-52 overflow-y-auto py-1">
-              {workspaces.map((ws) => (
-                <button
-                  key={ws.id}
-                  type="button"
-                  onClick={() => { setActiveWorkspace(ws); setWsOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
-                    activeWorkspace?.id === ws.id ? 'bg-primary/10 text-primary-bright' : 'text-text-muted hover:bg-surface-2'
-                  }`}
-                >
-                  <span className="text-[var(--text-muted)]">{folderIcon}</span>
-                  <span className="truncate">{ws.name}</span>
-                </button>
-              ))}
+              {workspaces.map((ws) => {
+                const locked = ws.is_locked === true;
+                return (
+                  <button
+                    key={ws.id}
+                    type="button"
+                    onClick={() => {
+                      if (!locked) {
+                        setActiveWorkspace(ws);
+                        setWsOpen(false);
+                      }
+                    }}
+                    disabled={locked}
+                    title={locked ? 'Locked — upgrade or renew plan to unlock' : undefined}
+                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors ${
+                      locked
+                        ? 'opacity-60 cursor-not-allowed text-text-dim'
+                        : activeWorkspace?.id === ws.id
+                          ? 'bg-primary/10 text-primary-bright cursor-pointer'
+                          : 'text-text-muted hover:bg-surface-2 cursor-pointer'
+                    }`}
+                  >
+                    <span className="text-[var(--text-muted)] flex-shrink-0">
+                      {locked ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                      ) : (
+                        folderIcon
+                      )}
+                    </span>
+                    <span className="truncate">{ws.name}</span>
+                  </button>
+                );
+              })}
             </div>
             <div className="border-t border-[var(--border)] p-2">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newWsName}
-                  onChange={(e) => setNewWsName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateWorkspace()}
-                  placeholder="New workspace..."
-                  className="flex-1 min-w-0 bg-surface-2 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text)] placeholder:text-text-dim focus:outline-none focus:border-primary/40"
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateWorkspace}
-                  disabled={!newWsName.trim() || creating}
-                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-bright transition-colors disabled:opacity-40 cursor-pointer flex-shrink-0"
-                >
-                  Create
-                </button>
-              </div>
+              {isWorkspaceCountAtLimit(user?.subscription_plan_name ?? 'Free', workspaces.length) ? (
+                <p className="text-xs text-text-dim px-1 py-1">
+                  Workspace limit reached. <Link to="/pricing" className="text-primary-bright hover:underline">Upgrade</Link> to add more.
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newWsName}
+                    onChange={(e) => setNewWsName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateWorkspace()}
+                    placeholder="New workspace..."
+                    className="flex-1 min-w-0 bg-surface-2 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text)] placeholder:text-text-dim focus:outline-none focus:border-primary/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateWorkspace}
+                    disabled={!newWsName.trim() || creating}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-bright transition-colors disabled:opacity-40 cursor-pointer flex-shrink-0"
+                  >
+                    Create
+                  </button>
+                </div>
+              )}
             </div>
             {activeWorkspace && (
               <div className="border-t border-[var(--border)] py-1">
@@ -367,7 +401,12 @@ export function Sidebar({ width, collapsed, onToggleCollapse }: SidebarProps) {
           </div>
           {!isIconOnly && (
             <div className="min-w-0 flex-1 text-left">
-              <div className="text-sm text-[var(--text)] truncate">{user?.full_name || 'Account'}</div>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm text-[var(--text)] truncate">{user?.full_name || 'Account'}</span>
+                <span className="text-[10px] font-medium text-primary-bright bg-primary/10 px-1.5 py-0.5 rounded shrink-0 truncate max-w-[80px]" title={user?.subscription_plan_name ?? 'Free'}>
+                  {user?.subscription_plan_name ?? 'Free'}
+                </span>
+              </div>
               <div className="text-[11px] text-text-dim truncate">{user?.email}</div>
             </div>
           )}
@@ -418,6 +457,16 @@ export function Sidebar({ width, collapsed, onToggleCollapse }: SidebarProps) {
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
               </svg>
               Upgrade plan
+            </Link>
+            <Link
+              to="/feedback"
+              onClick={() => setProfileOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--text)] hover:bg-surface-2 no-underline"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+              </svg>
+              Submit feedback
             </Link>
             <div className="border-t border-[var(--border)]" />
             <button

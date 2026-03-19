@@ -106,6 +106,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # REST Framework
@@ -125,10 +128,10 @@ REST_FRAMEWORK = {
     ),
 }
 
-# JWT
+# JWT — access token short-lived; refresh token keeps user logged in for 30 days unless they logout
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
@@ -140,14 +143,39 @@ CORS_ALLOW_CREDENTIALS = True
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 
-# Channels
+# Channels — prefer Redis, fall back to in-memory if Redis is unreachable
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+
+
+def _redis_is_reachable(url: str) -> bool:
+    try:
+        import redis as _redis
+        conn = _redis.Redis.from_url(url, socket_connect_timeout=1)
+        conn.ping()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+if _redis_is_reachable(REDIS_URL):
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        }
     }
-}
+    _channel_backend = "Redis"
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+    _channel_backend = "InMemory (Redis unavailable)"
+
+import logging as _logging
+_logging.getLogger("django").info("Channel layer: %s", _channel_backend)
 
 # Celery
 CELERY_BROKER_URL = REDIS_URL

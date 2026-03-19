@@ -113,13 +113,6 @@ export function Settings() {
     }
   };
 
-  const handleSetPrimary = async (id: string) => {
-    try {
-      await api.patch(`/auth/api-keys/${id}/`, { set_primary: true });
-      fetchApiKeys();
-    } catch {}
-  };
-
   const handleDeleteKey = async (id: string) => {
     try {
       await api.delete(`/auth/api-keys/${id}/`);
@@ -387,18 +380,6 @@ export function Settings() {
                     <span className="font-medium text-sm text-[var(--text)]">{key.name}</span>
                     <span className="text-text-dim text-xs ml-2">({key.provider_display})</span>
                   </span>
-                  <span className="text-[11px] text-text-dim shrink-0">
-                    {key.order === 0 ? 'Primary' : `Fallback ${key.order}`}
-                  </span>
-                  {key.order !== 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrimary(key.id)}
-                      className="text-xs text-primary-bright hover:underline shrink-0 cursor-pointer"
-                    >
-                      Set primary
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => handleDeleteKey(key.id)}
@@ -474,7 +455,10 @@ export function Settings() {
           <h2 className="font-semibold text-[var(--text)]">Plan & billing</h2>
           <p className="text-sm text-text-muted mt-1">Manage your subscription.</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-[var(--text)]">
+            Current plan: <span className="font-medium text-primary-bright">{user?.subscription_plan_name ?? 'Free'}</span>
+          </p>
           <Link to="/pricing" className="text-sm text-primary-bright hover:underline">
             View plans and upgrade →
           </Link>

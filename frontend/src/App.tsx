@@ -7,9 +7,10 @@ import { Register } from './pages/Register';
 import { PricingPage } from './pages/PricingPage';
 import { UseCasesPage } from './pages/UseCasesPage';
 import { Dashboard } from './pages/Dashboard';
-import { KnowledgeBase } from './pages/KnowledgeBase';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
+import { Feedback } from './pages/Feedback';
+import { ReviewsPage } from './pages/ReviewsPage';
 import { AppShell } from './components/layout/AppShell';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -18,20 +19,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GuestRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
       <Route path="/login/callback" element={<LoginCallback />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/use-cases" element={<UseCasesPage />} />
+      <Route path="/reviews" element={<ReviewsPage />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="knowledge-base" element={<KnowledgeBase />} />
         <Route path="history" element={<History />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="feedback" element={<Feedback />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
