@@ -5,6 +5,8 @@ import httpx
 from bs4 import BeautifulSoup
 from celery import shared_task
 
+from knowledge.url_validation import is_safe_http_url_for_fetch
+
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 2000
@@ -74,6 +76,11 @@ def process_document(self, document_id: str):
         raw = doc.raw_content or ""
 
         if doc.source_url and not raw:
+            if not is_safe_http_url_for_fetch(doc.source_url):
+                logger.warning("Unsafe or blocked URL for document %s", document_id)
+                doc.processing_status = KnowledgeDocument.ProcessingStatus.FAILED
+                doc.save(update_fields=["processing_status"])
+                return
             logger.info("Fetching URL for document %s: %s", document_id, doc.source_url)
             raw = _fetch_url(doc.source_url)
             doc.raw_content = raw

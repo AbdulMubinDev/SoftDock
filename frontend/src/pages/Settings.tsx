@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { useAuthStore } from '../lib/stores/authStore';
 import { useWorkspaceStore, type Workspace } from '../lib/stores/workspaceStore';
 import { api } from '../lib/api';
+import { canUseProvider, isAiProviderListRestricted } from '../lib/planLimits';
 
 type ProviderSlug = 'anthropic' | 'openai' | 'google' | 'groq' | 'xai' | 'openrouter';
 
@@ -30,6 +31,7 @@ interface ApiKeyEntry {
 export function Settings() {
   const { user, setUser } = useAuthStore();
   const { activeWorkspace, setActiveWorkspace, workspaces, setWorkspaces } = useWorkspaceStore();
+  const planName = user?.subscription_plan_name ?? 'Free';
 
   const [fullName, setFullName] = useState(user?.full_name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
@@ -106,8 +108,17 @@ export function Settings() {
       setAddKeyOpen(false);
       fetchApiKeys();
     } catch (e: unknown) {
-      const d = e && typeof e === 'object' && 'response' in e ? (e as { response?: { data?: Record<string, string[]> } }).response?.data : null;
-      setAddKeyError(d?.name?.[0] ?? d?.api_key?.[0] ?? 'Failed to add key.');
+      const d = e && typeof e === 'object' && 'response' in e
+        ? (e as { response?: { data?: Record<string, string[] | string> & { detail?: unknown } } }).response?.data
+        : null;
+      const pick = (v: string[] | string | undefined) => (Array.isArray(v) ? v[0] : typeof v === 'string' ? v : undefined);
+      let msg = pick(d?.provider) ?? pick(d?.name) ?? pick(d?.api_key);
+      if (!msg && d && typeof d === 'object' && 'detail' in d) {
+        const det = d.detail;
+        if (typeof det === 'string') msg = det;
+        else if (Array.isArray(det) && det[0]) msg = String(det[0]);
+      }
+      setAddKeyError(msg?.trim() || 'Failed to add key.');
     } finally {
       setAddKeySubmitting(false);
     }
@@ -339,6 +350,17 @@ export function Settings() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isAiProviderListRestricted(planName) && (
+            <div className="rounded-lg border border-amber-500/35 bg-amber-500/5 px-3 py-2.5 text-sm text-amber-100/90">
+              <p className="font-medium text-amber-50/95">Plan: {planName}</p>
+              <p className="mt-1.5 text-amber-100/80 leading-relaxed">
+                Only <strong className="text-amber-50/95">Anthropic</strong> and{' '}
+                <strong className="text-amber-50/95">OpenAI</strong> keys are available on your plan. Adding keys for Groq, Google, xAI, or OpenRouter requires{' '}
+                <Link to="/pricing" className="text-primary-bright hover:underline font-medium">Pro or Founding Member</Link>
+                — otherwise those keys are not used by the assistant.
+              </p>
+            </div>
+          )}
           <Button onClick={() => { setAddKeyOpen(true); setAddKeyError(''); }}>
             Add key
           </Button>
@@ -379,6 +401,14 @@ export function Settings() {
                   <span className="flex-1 min-w-0">
                     <span className="font-medium text-sm text-[var(--text)]">{key.name}</span>
                     <span className="text-text-dim text-xs ml-2">({key.provider_display})</span>
+                    {!canUseProvider(planName, key.provider) && (
+                      <span
+                        className="block sm:inline sm:ml-2 mt-0.5 sm:mt-0 text-[10px] text-amber-400/95 bg-amber-500/10 px-1.5 py-0.5 rounded w-fit"
+                        title="Upgrade to use this provider with the assistant"
+                      >
+                        Not included in your plan — not used by the assistant
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -417,13 +447,27 @@ export function Settings() {
                 <label className="block text-sm font-medium text-[var(--text)] mb-1">Provider</label>
                 <select
                   value={addKeyProvider}
-                  onChange={(e) => setAddKeyProvider(e.target.value as ProviderSlug)}
+                  onChange={(e) => {
+                    setAddKeyProvider(e.target.value as ProviderSlug);
+                    setAddKeyError('');
+                  }}
                   className="w-full bg-surface-2 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:border-primary/50"
                 >
                   {PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                      {!canUseProvider(planName, p.value) ? ' — requires Pro' : ''}
+                    </option>
                   ))}
                 </select>
+                {!canUseProvider(planName, addKeyProvider) && (
+                  <p className="mt-2 text-sm text-amber-400/95 leading-relaxed rounded-lg border border-amber-500/35 bg-amber-500/5 px-3 py-2">
+                    <strong className="text-amber-200/95">{PROVIDERS.find((p) => p.value === addKeyProvider)?.label}</strong> is not included in the{' '}
+                    <strong>{planName}</strong> plan. Choose Anthropic or OpenAI, or{' '}
+                    <Link to="/pricing" className="text-primary-bright hover:underline font-medium">upgrade</Link>{' '}
+                    to add this provider.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text)] mb-1">Key</label>
@@ -440,7 +484,15 @@ export function Settings() {
                 <Button variant="secondary" onClick={() => !addKeySubmitting && setAddKeyOpen(false)} disabled={addKeySubmitting}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddKey} disabled={!addKeyName.trim() || !addKeyValue.trim() || addKeySubmitting}>
+                <Button
+                  onClick={handleAddKey}
+                  disabled={
+                    !addKeyName.trim()
+                    || !addKeyValue.trim()
+                    || addKeySubmitting
+                    || !canUseProvider(planName, addKeyProvider)
+                  }
+                >
                   {addKeySubmitting ? 'Adding…' : 'Add'}
                 </Button>
               </div>

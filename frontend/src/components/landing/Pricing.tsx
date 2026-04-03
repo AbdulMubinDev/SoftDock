@@ -203,7 +203,11 @@ export function Pricing() {
         </div>
 
         {/* Bottom note */}
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 space-y-3">
+          <p className="text-sm text-text-dim max-w-lg mx-auto leading-relaxed">
+            <span className="text-amber-200/90 font-medium">MVP:</span> Paid checkout is not live yet — register and use the product on the{' '}
+            <strong className="text-[var(--text-muted)]">Free</strong> tier today; Stripe or Paddle integration will unlock Starter/Pro/Founding when billing goes live.
+          </p>
           <p className="text-sm text-text-dim">
             Start free, upgrade when you need more. All paid plans support annual billing (save up to 2 months).{' '}
             <Link to="/" className="text-primary-bright no-underline hover:underline">

@@ -133,13 +133,28 @@ npm run dev
 
 ---
 
-## 6. Production Deployment (Future)
+## 6. Production deployment (MVP checklist)
 
-For production on the Contabo VPS, you'll additionally need:
-- **Nginx** — reverse proxy (config template in `nginx/softdock.conf`)
-- **Gunicorn + Uvicorn** — ASGI server for Django + WebSockets
-- **PM2 or systemd** — process management
-- **Cloudflare** — DNS + SSL (free plan)
-- **Paddle** — payment processing (for billing feature)
+**Infrastructure**
+- **Nginx** (or similar) — reverse proxy: `/api/` and `/ws/` → Django ASGI; static frontend from `npm run build` or separate host.
+- **ASGI server** — e.g. Daphne/Uvicorn worker for Django Channels (WebSockets).
+- **Process manager** — systemd, PM2, or Docker for Django + **Celery worker** + Redis.
+- **TLS** — HTTPS and `wss://` for WebSockets; set `FRONTEND_URL` to the exact public origin (e.g. `https://app.example.com`).
 
-These are NOT needed for the MVP / local development.
+**Required environment (backend, `DEBUG=False`)**
+- `SECRET_KEY` — strong, unique (never the dev default).
+- `ENCRYPTION_KEY` — Fernet key; **required** in production (startup will fail without it).
+- `ALLOWED_HOSTS` — your domain(s).
+- `DATABASE_URL` — PostgreSQL recommended (`postgresql://` or `postgres://`).
+- `REDIS_URL` — for Channels and Celery (avoid in-memory channel layer in production).
+- `FRONTEND_URL` — single origin for CORS and OAuth redirects; use `CORS_ALLOWED_ORIGINS` if you need multiple origins.
+- Optional: `SECURE_SSL_REDIRECT=false` only if TLS is terminated at nginx and Django must not redirect HTTP→HTTPS itself.
+
+**Security notes**
+- Never commit `.env`; rotate keys if leaked.
+- WebSocket auth uses `?token=` (JWT) — avoid logging query strings server-side.
+- Knowledge **URL ingestion** blocks private/localhost hosts (SSRF mitigation); public `http(s)` only.
+
+**Not in MVP**
+- **Paid checkout** — pricing on the site is descriptive; Stripe/Paddle integration is future work.
+- **Paddle** — env vars reserved; not connected until billing ships.

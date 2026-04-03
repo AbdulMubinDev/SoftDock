@@ -15,6 +15,7 @@ Legacy flow (backward compat):
 import json
 import logging
 
+from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
@@ -75,7 +76,8 @@ class IssueStreamConsumer(AsyncWebsocketConsumer):
         except Exception as exc:
             logger.exception("WS receive handler crashed for issue %s: %s", self.issue_id, exc)
             try:
-                await self.send(text_data=json.dumps({"type": "error", "content": f"Server error: {exc}"}))
+                msg = str(exc) if settings.DEBUG else "Something went wrong. Please try again."
+                await self.send(text_data=json.dumps({"type": "error", "content": msg}))
             except Exception:
                 pass
 
@@ -127,10 +129,15 @@ class IssueStreamConsumer(AsyncWebsocketConsumer):
         except Exception as exc:
             logger.exception("AI streaming error for issue %s", self.issue_id)
             if not full_response:
-                full_response = f"AI error: {str(exc)}"
+                full_response = (
+                    f"AI error: {str(exc)}"
+                    if settings.DEBUG
+                    else "The assistant hit an error. Check your API keys in Settings or try again."
+                )
             if not self._client_gone:
                 try:
-                    await self.send(text_data=json.dumps({"type": "error", "content": str(exc)}))
+                    err_msg = str(exc) if settings.DEBUG else "The assistant hit an error. Please try again."
+                    await self.send(text_data=json.dumps({"type": "error", "content": err_msg}))
                 except Exception:
                     self._client_gone = True
 

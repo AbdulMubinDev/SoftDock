@@ -67,8 +67,17 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         if not value:
             return ""
         from .models import UserAPIKey
+        from core.plans import can_use_provider
+
         if value not in dict(UserAPIKey.Provider.choices):
             raise serializers.ValidationError(f"Unknown provider: {value}.")
+        user = self.instance
+        plan = getattr(user, "subscription_plan_name", None) or "Free"
+        if not can_use_provider(plan, value):
+            raise serializers.ValidationError(
+                f"Your current plan ({plan}) only supports Anthropic and OpenAI. "
+                "Upgrade to Pro or Founding Member to select other providers."
+            )
         return value
 
     def update(self, instance, validated_data):
@@ -111,6 +120,23 @@ class CreateUserAPIKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAPIKey
         fields = ("name", "provider", "api_key")
+
+    def validate(self, attrs):
+        from core.plans import can_use_provider
+
+        user = self.context["request"].user
+        plan = getattr(user, "subscription_plan_name", None) or "Free"
+        provider = attrs.get("provider")
+        if provider and not can_use_provider(plan, provider):
+            raise serializers.ValidationError(
+                {
+                    "provider": [
+                        f"Your current plan ({plan}) only supports API keys for Anthropic and OpenAI. "
+                        "Upgrade to Pro or Founding Member to use Groq, Google, xAI, OpenRouter, and other providers."
+                    ]
+                }
+            )
+        return attrs
 
     def create(self, validated_data):
         api_key = validated_data.pop("api_key")

@@ -14,14 +14,14 @@ Use this list to finish setting up SoftDock end-to-end. Tick items as you comple
 
 ---
 
-## 2. Backend (Django) — to be built
+## 2. Backend (Django) — implemented
 
 | # | Task | Status / Notes |
 |---|------|----------------|
-| 2.1 | Create Django project (e.g. `backend/` or `softdock/backend/`) | Per `SoftDock_Project_Document.md`: core, accounts, workspaces, issues, knowledge, billing, streaming. |
-| 2.2 | Configure PostgreSQL and run migrations | Create DB, set `DATABASE_URL` in backend `.env`. |
-| 2.3 | Implement auth endpoints | `POST /api/auth/register/`, `POST /api/auth/login/`, `POST /api/auth/token/refresh/`, `GET/PUT /api/auth/me/`. |
-| 2.4 | (Optional) Add social login | See `AUTH_SETUP.md`: django-allauth, Google/GitHub OAuth, callback URLs, JWT in redirect to `/login/callback#access_token=...`. |
+| 2.1 | Project layout | `backend/`: `accounts`, `workspaces`, `issues`, `knowledge`, `streaming`, `core`. |
+| 2.2 | PostgreSQL (prod) or SQLite (dev) | Set `DATABASE_URL` (supports `postgresql://` and `postgres://`) or omit for SQLite. Run `python manage.py migrate`. |
+| 2.3 | Auth API | `POST /api/auth/register/`, `POST /api/auth/login/`, `POST /api/auth/token/refresh/`, `GET/PUT /api/auth/me/`, API keys, models catalog. |
+| 2.4 | (Optional) Social login | See `AUTH_SETUP.md`: Google/GitHub OAuth → `/login/callback#access_token=...`. |
 
 ---
 
@@ -39,7 +39,8 @@ Create a `.env` (or use env vars) in the backend root. You need at least:
 | `ENCRYPTION_KEY` | Fernet key for encrypting user API keys. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Only if you add Google login (see `AUTH_SETUP.md`). |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Only if you add GitHub login. |
-| (Optional) `PADDLE_*` | For billing (vendor ID, API key, webhook secret). |
+| (Optional) `PADDLE_*` | Reserved for future billing (not wired in MVP). |
+| `CORS_ALLOWED_ORIGINS` | Optional comma-separated list; defaults to `FRONTEND_URL`. |
 
 ---
 
@@ -75,7 +76,7 @@ Full steps: **`docs/AUTH_SETUP.md`**.
 | 6.3 | SSL | e.g. Cloudflare or Certbot; ensure `https://` and `wss://` work. |
 | 6.4 | Run Django (e.g. Gunicorn + Uvicorn) | ASGI for WebSockets (Channels). |
 | 6.5 | Serve frontend | Build with `npm run build`; serve `frontend/dist/` via Nginx or a static host. |
-| 6.6 | Set production env vars | Frontend: `VITE_API_URL`, `VITE_WS_URL` point to production API/WS. Backend: production `ALLOWED_HOSTS`, `DATABASE_URL`, secrets, OAuth callbacks. |
+| 6.6 | Set production env vars | Frontend: `VITE_API_URL`, `VITE_WS_URL` → HTTPS / WSS. Backend: `DEBUG=False`, strong `SECRET_KEY`, `ENCRYPTION_KEY`, `ALLOWED_HOSTS`, `FRONTEND_URL` (and optional `CORS_ALLOWED_ORIGINS`), `DATABASE_URL`, `REDIS_URL`, OAuth callbacks. Behind TLS termination: ensure `SECURE_PROXY_SSL_HEADER` matches your proxy (defaults to `X-Forwarded-Proto`). |
 
 ---
 

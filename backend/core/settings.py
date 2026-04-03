@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse, unquote
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -71,17 +73,18 @@ ASGI_APPLICATION = "core.asgi.application"
 # Database — PostgreSQL in production, SQLite fallback for local dev
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 if DATABASE_URL:
-    import re
-    m = re.match(r"postgres://(?P<user>[^:]+):(?P<pw>[^@]+)@(?P<host>[^:]+):(?P<port>\d+)/(?P<db>.+)", DATABASE_URL)
-    if m:
+    parsed = urlparse(DATABASE_URL)
+    if parsed.scheme in ("postgres", "postgresql"):
+        path = (parsed.path or "").lstrip("/")
+        db_name = path.split("?")[0] if path else ""
         DATABASES = {
             "default": {
                 "ENGINE": "django.db.backends.postgresql",
-                "NAME": m.group("db"),
-                "USER": m.group("user"),
-                "PASSWORD": m.group("pw"),
-                "HOST": m.group("host"),
-                "PORT": m.group("port"),
+                "NAME": unquote(db_name),
+                "USER": unquote(parsed.username) if parsed.username else "",
+                "PASSWORD": unquote(parsed.password) if parsed.password else "",
+                "HOST": parsed.hostname or "",
+                "PORT": str(parsed.port or 5432),
             }
         }
     else:
@@ -137,11 +140,26 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# CORS
-CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
+# CORS — comma-separated list, or single FRONTEND_URL
+_cors_raw = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+if _cors_raw:
+    CORS_ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in _cors_raw.split(",") if o.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [FRONTEND_URL.rstrip("/")]
 CORS_ALLOW_CREDENTIALS = True
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+
+# HTTPS / cookies (when DEBUG=False; place behind TLS-terminating reverse proxy)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "true").lower() in ("true", "1", "yes")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 
 # Channels — prefer Redis, fall back to in-memory if Redis is unreachable
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -187,3 +205,16 @@ CELERY_TIMEZONE = "UTC"
 
 # Encryption key for BYOK (user API keys)
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
+
+# Fail fast on unsafe production configuration
+if not DEBUG:
+    from django.core.exceptions import ImproperlyConfigured
+
+    if not SECRET_KEY or SECRET_KEY == "insecure-dev-key-change-me":
+        raise ImproperlyConfigured(
+            "Set a strong, unique SECRET_KEY in the environment when DEBUG is False."
+        )
+    if not ENCRYPTION_KEY:
+        raise ImproperlyConfigured(
+            "ENCRYPTION_KEY is required when DEBUG is False (required for encrypted API keys)."
+        )
