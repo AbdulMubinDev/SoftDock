@@ -14,7 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Only ignore a top-level `lib/` (Python packaging). A bare `lib/` ignores every `lib/`
+# directory in the repo (e.g. `frontend/src/lib`) and prevents committing the frontend.
+/lib/
 lib64/
 parts/
 sdist/

@@ -42,6 +42,14 @@ body {
 
 html {
   scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+}
+
+/* Respect reduced-motion; everyone else gets smooth scroll on every container */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Code blocks - Fira Code */
@@ -77,19 +85,27 @@ code, pre, .font-mono {
 .animate-twinkle {
   animation: twinkle var(--dur, 4s) ease-in-out infinite var(--delay, 0s);
   opacity: 0;
+  will-change: opacity, transform;
+  contain: layout style;
 }
 
 @keyframes drift1 {
-  from { transform: translate(0, 0) scale(1); }
-  to { transform: translate(40px, 60px) scale(1.1); }
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(40px, 60px, 0) scale(1.1); }
 }
 @keyframes drift2 {
-  from { transform: translate(0, 0) scale(1); }
-  to { transform: translate(-50px, 30px) scale(0.9); }
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-50px, 30px, 0) scale(0.9); }
 }
-.nebula-1 { animation: drift1 20s ease-in-out infinite alternate; }
-.nebula-2 { animation: drift2 25s ease-in-out infinite alternate; }
-.nebula-3 { animation: drift1 18s ease-in-out infinite alternate; }
+.nebula-1 { animation: drift1 20s ease-in-out infinite alternate; will-change: transform; }
+.nebula-2 { animation: drift2 25s ease-in-out infinite alternate; will-change: transform; }
+.nebula-3 { animation: drift1 18s ease-in-out infinite alternate; will-change: transform; }
+/* Promote starfield and nebulas to their own GPU layer to prevent paint during scroll */
+#starfield,
+.nebula {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
 
 /* Cursor blink for demo window */
 @keyframes blink {

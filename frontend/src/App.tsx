@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './lib/stores/authStore';
+import { useLenisScroll } from './hooks/useLenisScroll';
 import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { LoginCallback } from './pages/LoginCallback';
@@ -46,9 +47,15 @@ function AppRoutes() {
   );
 }
 
+function SmoothScrollProvider() {
+  useLenisScroll();
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <SmoothScrollProvider />
       <AppRoutes />
     </BrowserRouter>
   );

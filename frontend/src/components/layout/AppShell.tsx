@@ -106,7 +106,7 @@ export function AppShell() {
 
       <div className="flex flex-col min-h-screen transition-[padding-left] duration-200" style={{ paddingLeft: effectiveWidth }}>
         <TopBar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto scroll-smooth">
           <Outlet />
         </main>
       </div>
