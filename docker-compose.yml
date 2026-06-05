@@ -1,0 +1,101 @@
+name: softdock
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-softdock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-softdock}
+      POSTGRES_DB: ${POSTGRES_DB:-softdock}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-softdock} -d ${POSTGRES_DB:-softdock}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-softdock}:${POSTGRES_PASSWORD:-softdock}@db:5432/${POSTGRES_DB:-softdock}
+      REDIS_URL: redis://redis:6379/0
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,web
+      FRONTEND_URL: http://localhost:${WEB_PORT:-8080}
+      BACKEND_URL: http://localhost:${WEB_PORT:-8080}
+      USE_REDIS_CHANNELS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request, urllib.error;\\ntry:\\n urllib.request.urlopen('http://127.0.0.1:8000/api/auth/models/')\\nexcept urllib.error.HTTPError as e:\\n raise SystemExit(0 if e.code == 401 else 1)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  celery:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: celery -A core worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-softdock}:${POSTGRES_PASSWORD:-softdock}@db:5432/${POSTGRES_DB:-softdock}
+      REDIS_URL: redis://redis:6379/0
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      USE_REDIS_CHANNELS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  media_data:

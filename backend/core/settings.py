@@ -176,7 +176,8 @@ def _redis_is_reachable(url: str) -> bool:
         return False
 
 
-if _redis_is_reachable(REDIS_URL):
+_use_redis_channels = os.getenv("USE_REDIS_CHANNELS", "").lower() in ("true", "1", "yes")
+if _use_redis_channels or _redis_is_reachable(REDIS_URL):
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
